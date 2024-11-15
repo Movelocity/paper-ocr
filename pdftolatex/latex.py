@@ -95,6 +95,6 @@ class TexFile():
                 content.append(obj.text)
         return [s.replace("\x0c", Command('vspace', arguments=['10pt']).text) for s in content]
 
-    def add_to_preamble(obj):
+    def add_to_preamble(self, obj):
         """Add Latex obj to preamble."""
         self.preamble.append(obj)

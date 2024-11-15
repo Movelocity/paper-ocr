@@ -1,4 +1,9 @@
-# pdftolatex   
+## Improved detecting algorithm for paper page layout
+
+![detecting_step](doc/detecting_steps.jpg)
+
+uses traditional computer vision based approach to detect text blocks in a paper page picture
+
 ## Description
 pdftolatex is a simple tool that essentially "decompiles" a PDF file into the LaTex code that would have been used to create the PDF in the first place. Being a college student who uses LaTex for notes and homework typesetting, I created this tool after getting frustrated by all the time and effort I was spending copying down a homework templates or notes before working on them myself. pdftolatex helps reduce some of the grind.
 

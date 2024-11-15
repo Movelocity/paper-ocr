@@ -1,10 +1,8 @@
+#Image Processing related
 import numpy as np
-from PIL import Image
 import cv2
 import os
 import matplotlib.pyplot as plt
-
-#Image Processing related
 
 def save_pil_images(items, path):
     """Save  PIL Image items to folder specified by path."""

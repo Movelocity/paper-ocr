@@ -7,9 +7,10 @@ import cv2
 import pytesseract
 from tqdm import tqdm
 
-from pdftolatex.utils import *
-from pdftolatex.segment_pdf import *
-from pdftolatex.latex import *
+from .utils import get_file_name, save_pil_images
+from .segment_pdf import find_content_blocks
+from .latex import Command, Environment, Text
+
 
 local_store_folder = "localstore"
 

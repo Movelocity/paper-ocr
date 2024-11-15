@@ -1,6 +1,6 @@
 import cv2
 import os
-from utils import BBox, pct_white
+from .utils import BBox, pct_white
 from typing import Collection
 def handle_small_boxes(bboxes):
     # 处理可能的序号小框逻辑

@@ -65,7 +65,7 @@ def sort_bboxes(bboxes: list[BBox]) -> list[BBox]:
     # 扁平化结果
     return [bbox for row in rows for bbox in row]
 
-def segment(img, preview=False) -> list[BBox]:
+def segment(img, two_col=True, preview=False) -> list[BBox]:
     """Input: cv2 image of page. Output: BBox objects for content blocks in page"""
     MIN_TEXT_SIZE = 10
     HORIZONTAL_POOLING = 25
@@ -103,7 +103,7 @@ def segment(img, preview=False) -> list[BBox]:
         cv2.imwrite('./demo/m2.jpg', m2)
 
     # 形态学操作 使用膨胀操作扩大边界
-    k3 = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+    k3 = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
     m3 = cv2.dilate(m2, k3, iterations=2)
     if preview: 
         cv2.imwrite('./demo/m3.jpg', m3)
@@ -122,20 +122,23 @@ def segment(img, preview=False) -> list[BBox]:
         if not pct_white(img[by:by+bh, bx:bx+bw]) < 1:
             continue 
         bboxes.append(BBox(bx, by, bw, bh))
+    if two_col:
+        left_bboxes, right_bboxes = split_bboxes(bboxes, img_width)
+        if preview: 
+            for bbox in left_bboxes:
+                bx, by, bw, bh = bbox.x, bbox.y, bbox.width, bbox.height
+                cv2.rectangle(img, (bx, by), (bx + bw, by + bh), (0, 0, 255), 2)
+            for bbox in right_bboxes:
+                bx, by, bw, bh = bbox.x, bbox.y, bbox.width, bbox.height
+                cv2.rectangle(img, (bx, by), (bx + bw, by + bh), (0, 255, 0), 2)
+            # cv2.imwrite('./demo/result1.jpg', img)
 
-    left_bboxes, right_bboxes = split_bboxes(bboxes, img_width)
-    if preview: 
-        for bbox in left_bboxes:
-            bx, by, bw, bh = bbox.x, bbox.y, bbox.width, bbox.height
-            cv2.rectangle(img, (bx, by), (bx + bw, by + bh), (0, 0, 255), 2)
-        for bbox in right_bboxes:
-            bx, by, bw, bh = bbox.x, bbox.y, bbox.width, bbox.height
-            cv2.rectangle(img, (bx, by), (bx + bw, by + bh), (0, 255, 0), 2)
-        # cv2.imwrite('./demo/result1.jpg', img)
+        left_bboxes = sort_bboxes(left_bboxes)
+        right_bboxes = sort_bboxes(right_bboxes)
+        bboxes = left_bboxes + right_bboxes
+    else:
+        bboxes = sort_bboxes(bboxes)
 
-    left_bboxes = sort_bboxes(left_bboxes)
-    right_bboxes = sort_bboxes(right_bboxes)
-    bboxes = left_bboxes + right_bboxes
     # plot the index of sorted box in img
     if preview:
         for i, bbox in enumerate(bboxes):

@@ -52,7 +52,7 @@ def sort_bboxes(bboxes: list[BBox]) -> list[BBox]:
 def segment(img, two_col=True, preview=False) -> list[BBox]:
     """Input: cv2 image of page. Output: BBox objects for content blocks in page"""
     MIN_TEXT_SIZE = 10
-    HORIZONTAL_POOLING = 25
+    # HORIZONTAL_POOLING = 25
     img_width = img.shape[1]
     
     # 创建保存目录

@@ -73,9 +73,6 @@ def expand_bbox(box, expand_factor):
 
     return BBox(x, y, w, h) 
 
-
-
-
 #Latex related 
 
 get_file_name = lambda x: x.split('.')[0]
@@ -140,6 +137,6 @@ def filter_overlapping_boxes(boxes: list[BBox]) -> list[BBox]:
                 else:
                     to_remove.add(j)
 
-    print("to_remove: ", to_remove)
+    # print("to_remove: ", to_remove)
     # Return the filtered list
     return [box for i, box in enumerate(boxes) if i not in to_remove]

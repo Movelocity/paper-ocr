@@ -7,7 +7,6 @@ from typing import List
 import cv2
 import numpy as np
 from PIL import Image
-from io import BytesIO
 import asyncio
 from functools import lru_cache
 
@@ -61,7 +60,7 @@ class BoundingBox(BaseModel):
 class OCRResponse(BaseModel):
     bounding_boxes: List[BoundingBox] = Field(..., description="List of bounding boxes with OCR results")
 
-# @lru_cache(maxsize=100)
+@lru_cache(maxsize=100)
 def process_image(image_bytes: bytes, two_col: bool):
     nparr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -79,21 +78,23 @@ def process_image(image_bytes: bytes, two_col: bool):
         img_part = img[box.y:box.y+box.height, box.x:box.x+box.width, :]
         
         if box.width < small_block_w:
-            result, _ = rapidOcrEngine(img_part)  # 普通识别
+            result, _ = rapidOcrEngine(img_part)  # normal text
             try:
                 ocr_result = result[0][1]
             except:
                 ocr_result = ""
         else:
             pil_img = Image.fromarray(cv2.cvtColor(img_part, cv2.COLOR_BGR2RGB))
-            ocr_result = batch_inference([pil_img], model, processor)[0]  # 识别 latex
-        
+            ocr_result = batch_inference([pil_img], model, processor)[0]  # latex
+            if idx == 0:
+                ocr_result = ocr_result.replace(r"$\pm$ 20% of the ", "")  # remove this error text in page eyebrow
+
         bbox = BoundingBox(
             x=box.x / w,
             y=box.y / h,
             w=box.width / w,
             h=box.height / h,
-            text=ocr_result,
+            text=ocr_result.strip(),
             idx=idx
         )
         results.append(bbox)

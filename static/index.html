@@ -19,6 +19,7 @@
     }
     #side-panel {
       width: 300px;
+      height: 100vh;
       padding: 20px;
       background-color: #f0f0f0;
       overflow-y: auto;
@@ -30,93 +31,155 @@
       position: relative;
     }
     .ocr-button {
-      margin-top: 10px;
+      background-color: #37c517;
+      font-weight: bold;
+      cursor: pointer;
+      color: white;
+      padding: .5em 1em;
+      border: none;
+      position: absolute;
+      bottom: 2em;
+      right: 8em;
+    }
+    .ocr-button:hover {
+      background-color: #4cd42d;
+    }
+    .ocr-button:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
     }
     .bounding-box {
       position: absolute;
-      border: 2px solid red;
+      border: 2px solid hsl(215.45deg 100% 50%);
       cursor: pointer;
     }
+    .bounding-box.selected {
+      background-color: rgba(0, 123, 255, 0.3);
+    }
     #selected-text {
-      margin-top: 20px;
+      min-height: 14em;
+      width: 100%;
+      margin-top: 10px;
       white-space: pre-wrap;
+      font-family: Noto Sans,SF Pro SC,SF Pro Text,SF Pro Icons,PingFang SC,Helvetica Neue,Helvetica,Arial,sans-serif;
+      font-size: 14px;
+    }
+    #selected-text-hint {
+      padding-bottom: 0;
+      margin-bottom: 0;
+    }
+    #copy-selections, #clear-selections {
+      margin-top: 10px;
+      padding: 5px 10px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    #clear-selections {
+      background-color: #9e9d9f;
+    }
+    #copy-selections:hover {
+      background-color: #0056b3;
+    }
+    #clear-selections:hover {
+      background-color: #817f83;
+    }
+    #selected-count {
+      margin: 5px;
+      font-weight: bold;
+    }
+    .loading-hint {
+      color: #666;
+      font-style: italic;
+    }
+    .error-hint {
+      color: #ff0000;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
   <div id="pdf-viewer">
-    <input type="file" id="pdf-file" accept=".pdf">
     <div id="pdf-pages"></div>
   </div>
   <div id="side-panel">
-    <h2>Selected Text</h2>
-    <div id="selected-text"></div>
+    <input type="file" id="pdf-file" accept=".pdf">
+    <div>
+      <input type="checkbox" id="two-col-option">
+      <label for="two-col-option">Two-column layout</label>
+    </div>
+    <button id="copy-selections">Copy Selections</button>
+    <button id="clear-selections">Clear Selections</button>
+    <div id="selected-count">(0 selected)</div>
+    <h2 id="selected-text-hint">Selection</h2>
+    <pre id="selected-text" readonly></pre>
   </div>
-
   <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.9.359/pdf.worker.min.js';
-
     const pdfFile = document.getElementById('pdf-file');
     const pdfPages = document.getElementById('pdf-pages');
     const selectedText = document.getElementById('selected-text');
+    const copySelectionsButton = document.getElementById('copy-selections');
+    const clearSelectionsButton = document.getElementById('clear-selections');
+    const selectedCount = document.getElementById('selected-count');
+    const twoColOption = document.getElementById('two-col-option');
+
+    let selectedBoxes = [];
 
     pdfFile.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-
       pdfPages.innerHTML = '';
-
       for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
         const page = await pdf.getPage(pageNum);
         const scale = 1.5;
         const viewport = page.getViewport({ scale });
-
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
         canvas.height = viewport.height;
         canvas.width = viewport.width;
-
-        const renderContext = {
-          canvasContext: context,
-          viewport: viewport
-        };
-
+        pdfPages.style.width = `${viewport.width}px`;
+        const renderContext = { canvasContext: context, viewport: viewport };
         await page.render(renderContext);
-
         const pageContainer = document.createElement('div');
         pageContainer.className = 'page-container';
         pageContainer.appendChild(canvas);
-
         const ocrButton = document.createElement('button');
         ocrButton.textContent = `OCR Page ${pageNum}`;
         ocrButton.className = 'ocr-button';
-        ocrButton.addEventListener('click', () => performOCR(canvas, pageContainer));
-
+        ocrButton.addEventListener('click', () => performOCR(canvas, pageContainer, pageNum, ocrButton));
         pageContainer.appendChild(ocrButton);
         pdfPages.appendChild(pageContainer);
       }
     });
 
-    async function performOCR(canvas, pageContainer) {
+    async function performOCR(canvas, pageContainer, pageNum, ocrButton) {
       const formData = new FormData();
       formData.append('image', await canvasToBlob(canvas), 'page.png');
-      formData.append('two_col', 'true');
+      formData.append('two_col', twoColOption.checked.toString());
+      
+      ocrButton.disabled = true;
+      const loadingHint = document.createElement('span');
+      loadingHint.className = 'loading-hint';
+      loadingHint.textContent = 'OCR in progress...';
+      pageContainer.appendChild(loadingHint);
 
       try {
-        const response = await fetch('/ocr', {
-          method: 'POST',
-          body: formData
-        });
-
+        const response = await fetch('/ocr', { method: 'POST', body: formData });
         if (!response.ok) {
           throw new Error('OCR request failed');
         }
-
         const data = await response.json();
-        drawBoundingBoxes(data.bounding_boxes, pageContainer, canvas);
+        drawBoundingBoxes(data.bounding_boxes, pageContainer, canvas, pageNum);
+        pageContainer.removeChild(loadingHint);
+        ocrButton.style.display = 'none';
       } catch (error) {
         console.error('Error performing OCR:', error);
+        loadingHint.className = 'error-hint';
+        loadingHint.textContent = 'OCR failed. Please try again.';
+        ocrButton.disabled = false;
       }
     }
 
@@ -126,8 +189,8 @@
       });
     }
 
-    function drawBoundingBoxes(boxes, pageContainer, canvas) {
-      boxes.forEach(box => {
+    function drawBoundingBoxes(boxes, pageContainer, canvas, pageNum) {
+      boxes.forEach((box, index) => {
         const boundingBox = document.createElement('div');
         boundingBox.className = 'bounding-box';
         boundingBox.style.left = `${box.x * canvas.width}px`;
@@ -136,9 +199,77 @@
         boundingBox.style.height = `${box.h * canvas.height}px`;
         boundingBox.addEventListener('click', () => {
           selectedText.textContent = box.text;
+          toggleBoxSelection(boundingBox, box, pageNum, index);
         });
         pageContainer.appendChild(boundingBox);
       });
+    }
+
+    function toggleBoxSelection(boundingBox, box, pageNum, index) {
+      const boxId = `${pageNum}-${index}`;
+      const selectedIndex = selectedBoxes.findIndex(b => b.id === boxId);
+      if (selectedIndex === -1) {
+        selectedBoxes.push({ id: boxId, pageNum, text: box.text });
+        boundingBox.classList.add('selected');
+      } else {
+        selectedBoxes.splice(selectedIndex, 1);
+        boundingBox.classList.remove('selected');
+      }
+      updateSelectedCount();
+    }
+
+    function updateSelectedCount() {
+      selectedCount.textContent = `(${selectedBoxes.length} selected)`;
+    }
+
+    copySelectionsButton.addEventListener('click', () => {
+      const sortedSelections = selectedBoxes.sort((a, b) => {
+        if (a.pageNum !== b.pageNum) return a.pageNum - b.pageNum;
+        return a.id.localeCompare(b.id);
+      });
+      const text = sortedSelections.map(box => box.text).join('\n\n');
+      console.log(text)
+      copyTextToClipboard(text);
+      clearSelections()
+      // navigator.clipboard.writeText(text).then(() => {
+      //   alert('Selections copied to clipboard!');
+      //   clearSelections();
+      // });
+    });
+
+    clearSelectionsButton.addEventListener('click', clearSelections);
+
+    function clearSelections() {
+      selectedBoxes = [];
+      document.querySelectorAll('.bounding-box.selected').forEach(box => {
+        box.classList.remove('selected');
+      });
+      updateSelectedCount();
+      selectedText.textContent = '';
+    }
+
+    function copyTextToClipboard(text) {
+      const tempInput = document.createElement('textarea');
+      // Set its styles to position it off-screen
+      tempInput.style.position = 'fixed';
+      tempInput.style.opacity = 0;
+      tempInput.style.top = '-1000px';
+      
+      // Set the value to the text we want to copy
+      tempInput.value = text;
+      document.body.appendChild(tempInput);
+
+      tempInput.select();
+      tempInput.setSelectionRange(0, 99999); // For mobile devices
+      
+      // Execute the copy command
+      try {
+        document.execCommand('copy');
+        console.log('Text copied to clipboard successfully');
+      } catch (err) {
+        console.error('Failed to copy text: ', err);
+      }
+      document.body.removeChild(tempInput);
     }
   </script>
 </body>

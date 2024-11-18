@@ -1,6 +1,6 @@
 import cv2
 import os
-from .utils import BBox, pct_white
+from .utils import BBox, pct_white, filter_overlapping_boxes
 from typing import Collection
 def handle_small_boxes(bboxes):
     # 处理可能的序号小框逻辑
@@ -40,30 +40,14 @@ def are_in_same_row(bbox1: BBox, bbox2: BBox, avg_height: float, threshold: floa
 def sort_bboxes(bboxes: list[BBox]) -> list[BBox]:
     """从上到下进行框排序，同一行内的多个小框从左到右排序"""
     # 计算平均宽度和高度
-    # avg_width = sum(bbox.width for bbox in bboxes) / len(bboxes)
-    avg_height = sum(bbox.height for bbox in bboxes) / len(bboxes)
+    bboxes.sort(key=lambda bbox: bbox.y)
+    for i in range(1, len(bboxes)):
+        prev_box = bboxes[i-1]
+        box = bboxes[i]
+        if box.x < prev_box.x and box.y+box.height < prev_box.y+prev_box.height:
+            bboxes[i-1], bboxes[i] = box, prev_box
+    return bboxes
 
-    # 将bboxes分组到行
-    rows = []
-    for bbox in bboxes:
-        added_to_row = False
-        for row in rows:
-            if are_in_same_row(bbox, row[0], avg_height):
-                row.append(bbox)
-                added_to_row = True
-                break
-        if not added_to_row:
-            rows.append([bbox])
-
-    # 对每一行进行排序
-    for row in rows:
-        row.sort(key=lambda bbox: bbox.x)
-
-    # 对行进行排序
-    rows.sort(key=lambda row: row[0].y)
-
-    # 扁平化结果
-    return [bbox for row in rows for bbox in row]
 
 def segment(img, two_col=True, preview=False) -> list[BBox]:
     """Input: cv2 image of page. Output: BBox objects for content blocks in page"""
@@ -96,21 +80,21 @@ def segment(img, two_col=True, preview=False) -> list[BBox]:
     if preview: 
         cv2.imwrite('./demo/m1.jpg', m1)
 
-    # 形态学操作 使用闭运算填充小的孔洞
-    k2 = cv2.getStructuringElement(cv2.MORPH_RECT, (HORIZONTAL_POOLING, 3))
-    m2 = cv2.morphologyEx(m1, cv2.MORPH_CLOSE, k2)
-    if preview: 
-        cv2.imwrite('./demo/m2.jpg', m2)
+    # # 形态学操作 使用闭运算填充小的孔洞
+    # k2 = cv2.getStructuringElement(cv2.MORPH_RECT, (HORIZONTAL_POOLING, 3))
+    # m2 = cv2.morphologyEx(m1, cv2.MORPH_CLOSE, k2)
+    # if preview: 
+    #     cv2.imwrite('./demo/m2.jpg', m2)
 
-    # 形态学操作 使用膨胀操作扩大边界
-    k3 = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-    m3 = cv2.dilate(m2, k3, iterations=2)
-    if preview: 
-        cv2.imwrite('./demo/m3.jpg', m3)
+    # # 形态学操作 使用膨胀操作扩大边界
+    # k3 = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    # m3 = cv2.dilate(m2, k3, iterations=2)
+    # if preview: 
+    #     cv2.imwrite('./demo/m3.jpg', m3)
 
     # 检测轮廓
     # contours = cv2.findContours(m3, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
-    contours = cv2.findContours(m3, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours = cv2.findContours(m1, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     contours = contours[0] if len(contours) == 2 else contours[1]
     
     bboxes = []
@@ -122,6 +106,8 @@ def segment(img, two_col=True, preview=False) -> list[BBox]:
         if not pct_white(img[by:by+bh, bx:bx+bw]) < 1:
             continue 
         bboxes.append(BBox(bx, by, bw, bh))
+    bboxes = filter_overlapping_boxes(bboxes)
+
     if two_col:
         left_bboxes, right_bboxes = split_bboxes(bboxes, img_width)
         if preview: 

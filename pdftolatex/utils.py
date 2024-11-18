@@ -59,10 +59,10 @@ def remove_duplicate_bboxes(boxes):
     return new
 
 def merge_bboxes(lst):
-        new = []
-        [new.append(box) for box in lst if not new or 
-                not any([box.y > box2.y and box.y_bottom < box2.y_bottom for box2 in new])]
-        return new
+    new = []
+    [new.append(box) for box in lst if not new or 
+            not any([box.y > box2.y and box.y_bottom < box2.y_bottom for box2 in new])]
+    return new
 
 def expand_bbox(box, expand_factor):
     x, y, w, h = box.x, box.y, box.width, box.height
@@ -101,3 +101,45 @@ def write_all(filename, lst):
     f.close()
     print("Wrote {0} strings to {1}".format(len(lst), filename))
 
+def filter_overlapping_boxes(boxes: list[BBox]) -> list[BBox]:
+    OVERLAP_THRESHOLD = 0.9
+
+    def calculate_overlap_ratio(box1: BBox, box2: BBox) -> float:
+        # Calculate the (x, y) coordinates of the intersection rectangle
+        x_left = max(box1.x, box2.x)
+        y_top = max(box1.y, box2.y)
+        x_right = min(box1.x + box1.width, box2.x + box2.width)
+        y_bottom = min(box1.y + box1.height, box2.y + box2.height)
+
+        if x_right < x_left or y_bottom < y_top:
+            return 0.0
+
+        # Calculate intersection area
+        intersection_area = (x_right - x_left) * (y_bottom - y_top)
+
+        # Calculate areas of both boxes
+        box1_area = box1.width * box1.height
+        box2_area = box2.width * box2.height
+
+        # Calculate and return the overlap ratio for the smaller box
+        smaller_box_area = min(box1_area, box2_area)
+        return intersection_area / smaller_box_area
+
+    to_remove = set()
+    for i in range(len(boxes)):
+        for j in range(len(boxes)):
+            if i == j or i in to_remove:
+                continue
+            overlap_ratio = calculate_overlap_ratio(boxes[i], boxes[j])
+            # print(i, j, overlap_ratio)
+            if overlap_ratio > OVERLAP_THRESHOLD:
+                # If overlap ratio exceeds threshold, mark the smaller box for removal
+                if boxes[i].width * boxes[i].height < boxes[j].width * boxes[j].height:
+                    to_remove.add(i)
+                    break  # No need to check further for this box
+                else:
+                    to_remove.add(j)
+
+    print("to_remove: ", to_remove)
+    # Return the filtered list
+    return [box for i, box in enumerate(boxes) if i not in to_remove]

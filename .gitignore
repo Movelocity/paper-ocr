@@ -3,6 +3,8 @@
 localstore/
 docs/*
 demo/
+frpc*.toml
+run_frp.bat
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

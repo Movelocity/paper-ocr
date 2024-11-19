@@ -2,7 +2,8 @@
 .vscode/
 localstore/
 docs/*
-demo/
+demo
+preview
 frpc*.toml
 run_frp.bat
 

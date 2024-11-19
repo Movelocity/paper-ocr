@@ -5,7 +5,8 @@ from .utils import BBox, pct_white, filter_overlapping_boxes
 
 # Configuration
 CONFIG = {
-    'MIN_TEXT_SIZE': 10,
+    'FIXED_WIDTH': 1000,
+    'MIN_TEXT_SIZE': 20,
     'ADAPTIVE_THRESHOLD_BLOCK_SIZE': 11,
     'ADAPTIVE_THRESHOLD_C': 5,
     'GAUSSIAN_BLUR_KERNEL': (5, 5),
@@ -63,13 +64,23 @@ def detect_contours(img: cv2.Mat) -> List[BBox]:
     bboxes = []
     for contour in contours:
         x, y, w, h = cv2.boundingRect(contour)
-        if h >= CONFIG['MIN_TEXT_SIZE'] and pct_white(img[y:y+h, x:x+w]) < 1:
-            bboxes.append(BBox(x, y, w, h))
+        if h >= CONFIG['MIN_TEXT_SIZE']:
+            white = pct_white(img[y:y+h, x:x+w])
+            if white < 1:
+                bboxes.append(BBox(x, y, w, h, pct_white=white))
     
     return filter_overlapping_boxes(bboxes)
 
-def segment(img: cv2.Mat, two_col: bool = True, preview: bool = False) -> List[BBox]:
+def resize_image(img: cv2.Mat, fixed_width: int) -> cv2.Mat:
+    ratio = fixed_width / img.shape[1]
+    return cv2.resize(img, (fixed_width, int(img.shape[0] * ratio)))
+
+def is_header(bbox: BBox) -> bool:
+    return bbox.pct_white > 0.004  # bbox.pct_white > 0.004 is considered Header
+
+def segment_paper(img: cv2.Mat, two_col: bool = True, preview: bool = False) -> List[BBox]:
     """Segment the input image into content blocks."""
+    img = resize_image(img, CONFIG['FIXED_WIDTH'])
     img_width = img.shape[1]
     
     # Create preview directory if it doesn't exist
@@ -104,7 +115,8 @@ def segment(img: cv2.Mat, two_col: bool = True, preview: bool = False) -> List[B
         for i, bbox in enumerate(bboxes):
             color = (0, 0, 255) if bbox in left_bboxes else (0, 255, 0)
             cv2.rectangle(preview_img, (bbox.x, bbox.y), (bbox.x + bbox.width, bbox.y + bbox.height), color, 2)
-            cv2.putText(preview_img, str(i), (bbox.x, bbox.y), cv2.FONT_HERSHEY_SIMPLEX, 1, (200, 200, 0), 2)
+            color = (200, 50, 40) if is_header(bbox) > 0.004 else (220, 220, 0)  
+            cv2.putText(preview_img, f"{i}", (bbox.x, bbox.y), cv2.FONT_HERSHEY_SIMPLEX, .7, color, 2)
         cv2.imwrite('./preview/5_result.jpg', preview_img)
 
     return bboxes
@@ -119,6 +131,6 @@ class BBox(
 """
 if __name__ == '__main__':
     img = cv2.imread('test.png')
-    bboxes = segment(img, True, True)
+    bboxes = segment_paper(img, True, True)
     # for bbox in bboxes:
     #     print(bbox.x, bbox.y, bbox.width, bbox.height)

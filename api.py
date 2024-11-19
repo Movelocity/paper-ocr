@@ -10,7 +10,7 @@ from PIL import Image
 import asyncio
 from functools import lru_cache
 
-from pdftolatex.block_detector import segment
+from pdftolatex.block_detector import segment_paper, is_header
 from texify.inference import batch_inference
 from texify.model.model import load_model
 from texify.model.processor import load_processor
@@ -68,16 +68,16 @@ def process_image(image_bytes: bytes, two_col: bool):
     if img is None:
         raise ValueError("Invalid image format")
     
-    bboxes = segment(img, two_col=two_col, preview=False)
+    bboxes = segment_paper(img, two_col=two_col, preview=False)
     
     h, w = img.shape[:2]
-    small_block_w = w/20
+    small_block_w = 32
     results = []
 
     for idx, box in enumerate(bboxes):
         img_part = img[box.y:box.y+box.height, box.x:box.x+box.width, :]
         
-        if box.width < small_block_w:
+        if box.width < small_block_w or is_header(box):
             result, _ = rapidOcrEngine(img_part)  # normal text
             try:
                 ocr_result = result[0][1]
@@ -99,7 +99,6 @@ def process_image(image_bytes: bytes, two_col: bool):
         )
         results.append(bbox)
 
-    
     return results
 
 @app.post("/ocr", response_model=OCRResponse)

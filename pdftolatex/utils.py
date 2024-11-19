@@ -14,23 +14,23 @@ def save_pil_images(items, path):
 
 class BBox():
     """BBox object representing boundingrectangle. (x coord of top-left, y coord of top-left, wdith, height)"""
-    def __init__(self, x, y, width, height):
+    def __init__(self, x, y, width, height, pct_white=0):
         self.x = x
         self.y = y
         self.width = width
         self.height = height
         self.y_bottom = y + height
-
+        self.pct_white = pct_white
 
 def pct_white(img):
     """Find percentage of white pixels in img."""
     if len(img.shape) == 3:
         b, g, r = cv2.split(img)
-        wb, wg, wr = b==255, g==255, r==255
+        wb, wg, wr = b>230, g>230, r>230
         white_pixels = np.bitwise_and(wb, np.bitwise_and(wg, wr))
         white_count, imsize = np.sum(white_pixels), img.size/3
     elif len(img.shape) == 2:
-        white_pixels = img == 255
+        white_pixels = img > 230
         white_count, imsize = np.sum(white_pixels), img.size
     return white_count/imsize
 

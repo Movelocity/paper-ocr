@@ -6,6 +6,7 @@ demo
 preview
 frpc*.toml
 run_frp.bat
+dev.ipynb 
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

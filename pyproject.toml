@@ -1,0 +1,31 @@
+[tool.poetry]
+name = "paper-ocr"
+version = "0.1.0"
+description = "A library for OCR on academic papers"
+authors = ["Vinay Kanigicherla", "Movelocity"]
+license = "MIT"
+
+packages = [
+    { include = "pdftolatex" }
+]
+
+[tool.poetry.dependencies]
+python = "*"
+fastapi = "*"
+httpx = "*"
+uvicorn = "*"
+numpy = "*"
+opencv-python = "*"
+Pillow = "*"
+pydantic = "*"
+texify = "*"
+rapidocr-onnxruntime = "*"
+pdf2image="*"
+pytesseract="*"
+tqdm="*"
+asyncio="*"
+matplotlib="*"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

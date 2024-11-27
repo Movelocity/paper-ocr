@@ -1,4 +1,5 @@
 import argparse
+from pdftolatex.latex import TexFile
 from pdftolatex.pdf import *
 
 def convert(filepath):
